@@ -18,4 +18,5 @@ Limitations
 
 
 See also:
-	https://github.com/kamenoseiji/imageSynth.git
+	Usage in Japanese: http://d.hatena.ne.jp/kamenoseiji/20140609/1402309169
+	GitHub repository: https://github.com/kamenoseiji/imageSynth

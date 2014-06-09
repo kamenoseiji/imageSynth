@@ -41,8 +41,8 @@ isTIFF <- function(header){
 
 #-------- Extract image profile to register multiple images
 XYprofile <- function(intensity){
-	Xprofile <- apply(intensity, 2, which.max)
-	Yprofile <- apply(intensity, 1, which.max)
+	Xprofile <- apply(intensity, 2, max)
+	Yprofile <- apply(intensity, 1, max)
 	return( list(X=Xprofile, Y=Yprofile) )
 }
 
