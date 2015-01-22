@@ -1,8 +1,21 @@
 # Usage: type in command line: Rscript imageSynth.R [filenames of images]
 #
-fname <- commandArgs(trailingOnly = T)
+Arguments <- commandArgs(trailingOnly = T)
 setwd('.')
 library(png)
+#-------- Parse comannd-line arguments
+parseArg <- function( args ){
+    Xtr <- 0; Ytr <- 0; calFlag <- F
+    argNum <- length(args)
+    fileNum <- argNum
+    for( index in 1:argNum ){
+        if(substr(args[index], 1,2) == "-X"){ Xtr <- as.numeric(substring(args[index], 3));  fileNum <- fileNum - 1}
+        if(substr(args[index], 1,2) == "-Y"){ Ytr <- as.numeric(substring(args[index], 3));  fileNum <- fileNum - 1}
+        if(substr(args[index], 1,2) == "-C"){ calFlag <- T;  fileNum <- fileNum - 1}
+    }
+    return( list(calFlag = calFlag, Xtr = Xtr, Ytr = Ytr, fname = args[(argNum - fileNum + 1):argNum]))
+}
+
 #-------- Identify image file format and read
 imageType <- function(fname){
 	header <- readBin(fname, what='raw', n=8)
@@ -41,8 +54,8 @@ isTIFF <- function(header){
 
 #-------- Extract image profile to register multiple images
 XYprofile <- function(intensity){
-	Xprofile <- apply(intensity, 2, which.max)
-	Yprofile <- apply(intensity, 1, which.max)
+	Xprofile <- apply(intensity, 2, max)
+	Yprofile <- apply(intensity, 1, max)
 	return( list(X=Xprofile, Y=Yprofile) )
 }
 
@@ -74,20 +87,29 @@ imXYshift <- function(image, shiftX=0, shiftY=0){
 }
 
 #-------- Procedure
-fileNum <- length(fname)
+argList <- parseArg(Arguments)
+fileNum <- length(argList$fname)
+outFname <- sprintf("%s_synth.png", argList$fname[1])
+cat( sprintf('Stack %d frames and save as %s.\n', fileNum, outFname))
 
 #-------- Reference Image
-refRGB <- imageType(fname[1])			# Read reference image
+refRGB <- imageType(argList$fname[1])	# Read reference image
 refProfile <- XYprofile(refRGB[,,2])	# Use Green channel
 accumRGB <- refRGB						# Image buffer to accumulate
+if( argList$calFlag ){ accumRGB[,,1] <- 0.5*accumRGB[,,1];  accumRGB[,,2] <- 0.7*accumRGB[,,2]} # For position-calibration
 
 #-------- Loop for non-reference images
 for(index in 2:fileNum){
-	currentRGB <- imageType(fname[index])				# Read image
+	currentRGB <- imageType(argList$fname[index])				# Read image
+    if( argList$calFlag ){ currentRGB[,,3] <- 0.5* currentRGB[,,3]; currentRGB[,,2] <- 0.7* currentRGB[,,2]}    # For position-calibration
 	currentProfile <- XYprofile( currentRGB[,,2] )		# Use green channel for image shift
 	Xlag <- crossCorr( refProfile$X, currentProfile$X)	# Image shift in X axis
 	Ylag <- crossCorr( refProfile$Y, currentProfile$Y)	# Image shift in Y axis
-	cat(sprintf("[%d] %s: %d pixel shift in X,  %d pixel shift in Y\n", index, fname[index], Xlag, Ylag))
+
+    #---- Comet Tracker
+    Xlag <- Xlag - floor( (index - 1)* argList$Xtr / (fileNum - 1))
+    Ylag <- Ylag + floor( (index - 1)* argList$Ytr / (fileNum - 1))
+    cat(sprintf("[%d/%d] %s: Shift (%d, %d) pixels in (X, Y).\n", index, fileNum, argList$fname[index], Xlag, Ylag))
 	
 	#-------- Shift and Accumurate image
 	for(colIndex in 1:3){
@@ -100,5 +122,5 @@ imageRange <- range(accumRGB)
 accumRGB <- (accumRGB - imageRange[1]) / diff(imageRange)
 
 #-------- Save to PNG
-writePNG(accumRGB, sprintf("%s_synth.png", fname[1]))
-#writeTIFF(accumRGB, sprintf("%s_synth.tiff", fname[1]), bits.per.sample=16 )
+writePNG(accumRGB, outFname)
+#writeTIFF(accumRGB, outFname, bits.per.sample=16 )
