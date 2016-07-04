@@ -22,6 +22,12 @@ Usage: in command line, type
 
          (3) Rscript imageSynth.R -X-45 -Y29 *.jpg
               To track comet motion. The pixel values should be specified with the -X and -Y options (without space).
+Options
+  -F : focal length to apply cos^4-law correction for optical vignetting (e.g. -F50 for a f=50 mm lens)
+  -T : switch to apply transfer function to enhance contrast
+  -L : specify Red-filtered frames to apply LRGB composite (e.g. -L3,4,5 to use the 3rd, 4th, 5th image files as L-channel)
+  -C : switch to position calibration mode for commet tracking
+  -X, -Y : apply commet tracking
 
 Limitations
  1. Pixel sizes of image files must be the same.
