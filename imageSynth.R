@@ -170,7 +170,7 @@ if(numLCH > 0){
     for(color_index in 1:3){
         accumRGB[,,color_index] <- LCH* scaleRGB[,,color_index]
     }
-}
+} else { accumRGB <- scaleRGB }
 if(argList$tfnFlag){ accumRGB <- accumRGB^0.6 }
 #-------- Save to PNG
 #writePNG(accumRGB, outFname)
