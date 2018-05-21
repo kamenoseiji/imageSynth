@@ -14,11 +14,12 @@ parseArg <- function( args ){
 		if(substr(args[index], 1,2) == "-X"){ Xtr <- as.numeric(substring(args[index], 3));  fileNum <- fileNum - 1}
 		if(substr(args[index], 1,2) == "-Y"){ Ytr <- as.numeric(substring(args[index], 3));  fileNum <- fileNum - 1}
 		if(substr(args[index], 1,2) == "-F"){ FoV <- as.numeric(substring(args[index], 3));  fileNum <- fileNum - 1}
+		if(substr(args[index], 1,2) == "-D"){ Dark <- as.integer(unlist(strsplit(substring(args[index], 3),',')));  fileNum <- fileNum - 1}# Dark frames
 		if(substr(args[index], 1,2) == "-L"){ LCH <- as.integer(unlist(strsplit(substring(args[index], 3),',')));  fileNum <- fileNum - 1} # LRGB L channel frames
 		if(substr(args[index], 1,2) == "-C"){ calFlag <- T;  fileNum <- fileNum - 1}    # commet tracking calibration
 		if(substr(args[index], 1,2) == "-T"){ tfnFlag <- T;  fileNum <- fileNum - 1}    # transfer function for contrast
 	}
-	return( list(calFlag = calFlag, tfnFlag = tfnFlag, Xtr = Xtr, Ytr = Ytr, LCH = LCH, FoV = FoV, fname = args[(argNum - fileNum + 1):argNum]))
+	return( list(calFlag = calFlag, tfnFlag = tfnFlag, Xtr = Xtr, Ytr = Ytr, Dark = Dark, LCH = LCH, FoV = FoV, fname = args[(argNum - fileNum + 1):argNum]))
 }
 #-------- Identify image file format and read
 imageType <- function(fname){
@@ -109,21 +110,32 @@ imContrast <- function(image){
 argList <- parseArg(Arguments)
 fileNum <- length(argList$fname)
 FoV     <- argList$FoV
-outFname <- sprintf("%s_synth.tiff", argList$fname[1])
-cat(sprintf('Stack %d frames and save as %s.\n', fileNum, outFname))
-#-------- Classify L and RGB files
-LCHList <- argList$LCH
-numLCH <- length(LCHList)
-RGBList <- setdiff(seq(fileNum), LCHList)
+#-------- Classify Dark, L, and RGB files
+DarkList <- argList$Dark; numDark <- length(DarkList)
+LCHList  <- argList$LCH;  numLCH  <- length(LCHList)
+RGBList <- setdiff(seq(fileNum), c(DarkList, LCHList))
 numRGB <- length(RGBList)
 #-------- Reference Image
 refRGB <- imageType(argList$fname[RGBList[1]])			# Read reference image
 refProfile <- XYprofile(refRGB[,,1] + refRGB[,,2] + refRGB[,,3])	# Use green channel
 accumRGB <- refRGB						# Image buffer to accumulate
 if( argList$calFlag ){ accumRGB[,,1] <- 0.5*accumRGB[,,1];  accumRGB[,,2] <- 0.7*accumRGB[,,2]}
+outFname <- sprintf("%s_synth.tiff", argList$fname[RGBList[1]])
+cat(sprintf('Stack %d frames and save as %s.\n', numRGB + numLCH, outFname))
+#-------- Dark Loop
+accumDark <- 0.0* accumRGB
+if(numDark > 0){
+    for(index in 1:numDark){
+		cat(sprintf('Reading %s as a dark frame\n', argList$fname[DarkList[index]]))
+		accumDark <- accumDark + imageType(argList$fname[DarkList[index]])
+	}
+	accumDark <- accumDark* (1.0/numDark)
+}
+cat(sprintf('Dark mean=%f  sd=%f\n', mean(accumDark), sd(accumDark)))
+accumRGB <- accumRGB - accumDark
 #-------- RGB Loop for non-reference images
 for(index in 2:numRGB){
-	currentRGB <- imageType(argList$fname[RGBList[index]])		# Read image
+	currentRGB <- imageType(argList$fname[RGBList[index]]) - accumDark		# Read image
 	if( argList$calFlag ){ currentRGB[,,3] <- 0.5* currentRGB[,,3]; currentRGB[,,2] <- 0.7* currentRGB[,,2]}
 	currentProfile <- XYprofile( currentRGB[,,1] + currentRGB[,,2] + currentRGB[,,3] )		# Use green channel for image shift
 	Xlag <- crossCorr( refProfile$X, currentProfile$X)	# Image shift in X axis
@@ -141,7 +153,7 @@ for(index in 2:numRGB){
 if(numLCH > 0){
     accumLCH <- 0.0* accumRGB[,,1]
     for(index in 1:numLCH){
-    	currentLCH <- imageType(argList$fname[LCHList[index]])		# Read image
+    	currentLCH <- imageType(argList$fname[LCHList[index]]) - accumDark		# Read image
     	currentProfile <- XYprofile( currentLCH[,,1] + currentLCH[,,2] + currentLCH[,,3] )		# Use red channel for image shift
     	Xlag <- crossCorr( refProfile$X, currentProfile$X)	# Image shift in X axis
     	Ylag <- crossCorr( refProfile$Y, currentProfile$Y)	# Image shift in Y axis

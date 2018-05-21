@@ -29,6 +29,8 @@ Options
 
   -T : switch to apply transfer function to enhance contrast
 
+  -D : specify dark frames (e.g. -L1,2 to use the 1st and 2nd image files as dark frames)
+
   -L : specify Red-filtered frames to apply LRGB composite (e.g. -L3,4,5 to use the 3rd, 4th, 5th image files as L-channel)
   
   -C : switch to position calibration mode for commet tracking
