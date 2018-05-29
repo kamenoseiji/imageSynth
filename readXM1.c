@@ -22,6 +22,13 @@ struct XM1_head{
     char    UNDEF2[40];         // filler
 };
 
+struct IFD_tagEntry{
+    short   tag;
+    short   type;
+    int     numData;
+    int     offset;
+};
+
 union headerInterpreter {   // char <-> int interpreter
     unsigned char byte[4];
     int           as_int;
@@ -97,6 +104,9 @@ int RAWread(
     FILE    *file_ptr;  // File Pointer
     unsigned char   *rawData;
     union headerInterpreter tmpInterpreter;
+    struct IFD_tagEntry IFDentry;
+    int     byte_offset = 0;    // Bytes from the top of CFA header
+    short   IFD_tag;
 
     rawData = (unsigned char *)malloc(rawByte);
     if((file_ptr = fopen(fname, "r")) == NULL){ return(-1);}       // Open RAF file
@@ -105,9 +115,31 @@ int RAWread(
     fclose(file_ptr);
 
     //---- raw Endian
-    memcpy(tmpInterpreter.byte, rawData, sizeof(int));
+    memcpy(tmpInterpreter.byte, rawData, sizeof(int)); byte_offset += sizeof(int);
     printf("Endian = %X  Magic Number = %X\n", tmpInterpreter.as_short[0], tmpInterpreter.as_short[1]);
     
+    //---- IFD address
+    memcpy(tmpInterpreter.byte, &rawData[byte_offset], sizeof(int)); byte_offset += sizeof(int);
+    printf("IFD address  = %X\n", tmpInterpreter.as_int);
+    byte_offset = tmpInterpreter.as_int;
+    memcpy(tmpInterpreter.byte, &rawData[byte_offset], sizeof(int)); byte_offset += sizeof(int);
+    printf("IFD tag entry %d\n", tmpInterpreter.as_short[0]);
+    
+    //---- IFD 0xF000
+    memcpy(&IFDentry, &rawData[byte_offset], sizeof(struct IFD_tagEntry)); byte_offset += sizeof(struct IFD_tagEntry);
+    printf("IFD [%04X] : Type %04X  %08X %08X\n", IFDentry.tag, IFDentry.type, IFDentry.numData, IFDentry.offset);
+    
+    //---- IFD 0xF001
+    memcpy(&IFDentry, &rawData[byte_offset], sizeof(struct IFD_tagEntry)); byte_offset += sizeof(struct IFD_tagEntry);
+    printf("IFD [%04X] : Type %04X  %08X %08X\n", IFDentry.tag, IFDentry.type, IFDentry.numData, IFDentry.offset);
+    
+    //---- IFD 0xF002
+    memcpy(&IFDentry, &rawData[byte_offset], sizeof(struct IFD_tagEntry)); byte_offset += sizeof(struct IFD_tagEntry);
+    printf("IFD [%04X] : Type %04X  %08X %08X\n", IFDentry.tag, IFDentry.type, IFDentry.numData, IFDentry.offset);
+
+    //---- IFD 0xF003
+    memcpy(&IFDentry, &rawData[byte_offset], sizeof(struct IFD_tagEntry)); byte_offset += sizeof(struct IFD_tagEntry);
+    printf("IFD [%04X] : Type %04X  %08X %08X\n", IFDentry.tag, IFDentry.type, IFDentry.numData, IFDentry.offset);
 
     memcpy(rawImage, &rawData[0x800], 0x181500);
     return(0);
